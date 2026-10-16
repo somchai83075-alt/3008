@@ -1,0 +1,158 @@
+local Players = game:GetService("Players")
+local UIS = game:GetService("UserInputService")
+
+local player = Players.LocalPlayer
+
+-- สร้าง ScreenGui
+local gui = Instance.new("ScreenGui")
+gui.Name = "SurvivalGui"
+gui.ResetOnSpawn = false
+gui.Parent = player:WaitForChild("PlayerGui")
+
+-- หน้าต่างหลัก (ลากได้)
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 240, 0, 260)
+frame.Position = UDim2.new(0, 20, 0.5, -130)
+frame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+frame.BackgroundTransparency = 0.1
+frame.Active = true
+frame.Draggable = true
+frame.Parent = gui
+Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 10)
+
+-- หัวข้อ
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 0, 30)
+title.BackgroundTransparency = 1
+title.Text = "สถานะผู้รอดชีวิต"
+title.TextColor3 = Color3.new(1, 1, 1)
+title.Font = Enum.Font.GothamBold
+title.TextSize = 16
+title.Parent = frame
+
+-- ฟังก์ชันสร้างแถบสถานะ
+local function makeBar(name, yPos, color)
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.new(1, -20, 0, 18)
+	label.Position = UDim2.new(0, 10, 0, yPos)
+	label.BackgroundTransparency = 1
+	label.TextColor3 = Color3.new(1, 1, 1)
+	label.Font = Enum.Font.Gotham
+	label.TextSize = 13
+	label.TextXAlignment = Enum.TextXAlignment.Left
+	label.Text = name
+	label.Parent = frame
+
+	local back = Instance.new("Frame")
+	back.Size = UDim2.new(1, -20, 0, 12)
+	back.Position = UDim2.new(0, 10, 0, yPos + 20)
+	back.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
+	back.Parent = frame
+	Instance.new("UICorner", back)
+
+	local fill = Instance.new("Frame")
+	fill.Size = UDim2.new(1, 0, 1, 0)
+	fill.BackgroundColor3 = color
+	fill.Parent = back
+	Instance.new("UICorner", fill)
+
+	return label, fill
+end
+
+local hpLabel, hpFill = makeBar("เลือด", 35, Color3.fromRGB(220, 60, 60))
+local hungerLabel, hungerFill = makeBar("ความหิว", 80, Color3.fromRGB(230, 170, 50))
+
+-- รายการของเก็บ
+local invTitle = Instance.new("TextLabel")
+invTitle.Size = UDim2.new(1, -20, 0, 18)
+invTitle.Position = UDim2.new(0, 10, 0, 125)
+invTitle.BackgroundTransparency = 1
+invTitle.TextColor3 = Color3.new(1, 1, 1)
+invTitle.Font = Enum.Font.GothamBold
+invTitle.TextSize = 13
+invTitle.TextXAlignment = Enum.TextXAlignment.Left
+invTitle.Parent = frame
+
+local list = Instance.new("ScrollingFrame")
+list.Size = UDim2.new(1, -20, 1, -155)
+list.Position = UDim2.new(0, 10, 0, 148)
+list.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+list.BorderSizePixel = 0
+list.ScrollBarThickness = 4
+list.CanvasSize = UDim2.new(0, 0, 0, 0)
+list.AutomaticCanvasSize = Enum.AutomaticSize.Y
+list.Parent = frame
+Instance.new("UICorner", list)
+Instance.new("UIListLayout", list).Padding = UDim.new(0, 2)
+
+-- แสดงตัวเลข (ถ้าเป็น infinity ให้โชว์ ∞)
+local function fmt(v)
+	if v == math.huge then return "∞" end
+	return tostring(math.floor(v))
+end
+
+local function setBar(fill, value, max)
+	if value == math.huge or max == math.huge then
+		fill.Size = UDim2.new(1, 0, 1, 0)
+	else
+		fill.Size = UDim2.new(math.clamp(value / max, 0, 1), 0, 1, 0)
+	end
+end
+
+-- อัปเดตเลือด
+local function bindHealth(character)
+	local hum = character:WaitForChild("Humanoid")
+	local function update()
+		hpLabel.Text = "เลือด: " .. fmt(hum.Health) .. " / " .. fmt(hum.MaxHealth)
+		setBar(hpFill, hum.Health, hum.MaxHealth)
+	end
+	hum.HealthChanged:Connect(update)
+	hum:GetPropertyChangedSignal("MaxHealth"):Connect(update)
+	update()
+end
+player.CharacterAdded:Connect(bindHealth)
+if player.Character then bindHealth(player.Character) end
+
+-- อัปเดตความหิว
+task.spawn(function()
+	local hunger = player:WaitForChild("Stats"):WaitForChild("Hunger")
+	local function update()
+		hungerLabel.Text = "ความหิว: " .. fmt(hunger.Value)
+		setBar(hungerFill, hunger.Value, 100)
+	end
+	hunger.Changed:Connect(update)
+	update()
+end)
+
+-- อัปเดตของเก็บ
+task.spawn(function()
+	local inv = player:WaitForChild("Inventory")
+	local function refresh()
+		for _, c in ipairs(list:GetChildren()) do
+			if c:IsA("TextLabel") then c:Destroy() end
+		end
+		for _, item in ipairs(inv:GetChildren()) do
+			local t = Instance.new("TextLabel")
+			t.Size = UDim2.new(1, -6, 0, 20)
+			t.BackgroundTransparency = 1
+			t.Text = "• " .. item.Name
+			t.TextColor3 = Color3.new(1, 1, 1)
+			t.Font = Enum.Font.Gotham
+			t.TextSize = 13
+			t.TextXAlignment = Enum.TextXAlignment.Left
+			t.Parent = list
+		end
+		invTitle.Text = "ของเก็บ (" .. #inv:GetChildren() .. " / ∞)"
+	end
+	inv.ChildAdded:Connect(refresh)
+	inv.ChildRemoved:Connect(refresh)
+	refresh()
+end)
+
+-- กดปุ่ม B เพื่อเปิด/ปิดหน้าต่าง
+UIS.InputBegan:Connect(function(input, typing)
+	if typing then return end
+	if input.KeyCode == Enum.KeyCode.B then
+		frame.Visible = not frame.Visible
+	end
+end)
