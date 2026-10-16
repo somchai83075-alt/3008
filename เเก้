@@ -1,0 +1,150 @@
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local CoreGui = game:GetService("CoreGui")
+
+-- ลบ GUI เก่าถ้ามี
+pcall(function()
+	if CoreGui:FindFirstChild("TPGui") then
+		CoreGui.TPGui:Destroy()
+	end
+end)
+
+-- ==================== CONFIG ====================
+local Speed = 28
+local JumpPower = 55
+
+-- ==================== HEALTH + SPEED ====================
+local function applyStats(character)
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if not humanoid then return end
+
+	humanoid.WalkSpeed = Speed
+	humanoid.JumpPower = JumpPower
+
+	-- Infinite Health
+	humanoid.MaxHealth = 999999
+	humanoid.Health = 999999
+
+	humanoid.HealthChanged:Connect(function()
+		if humanoid.Health < 999999 then
+			humanoid.Health = 999999
+		end
+	end)
+end
+
+if LocalPlayer.Character then
+	applyStats(LocalPlayer.Character)
+end
+
+LocalPlayer.CharacterAdded:Connect(function(char)
+	task.wait(0.5)
+	applyStats(char)
+end)
+
+-- ลูปบังคับค่า
+task.spawn(function()
+	while true do
+		task.wait(1)
+		local char = LocalPlayer.Character
+		if char then
+			local hum = char:FindFirstChildOfClass("Humanoid")
+			if hum then
+				hum.WalkSpeed = Speed
+				hum.JumpPower = JumpPower
+				hum.MaxHealth = 999999
+				hum.Health = 999999
+			end
+		end
+	end
+end)
+
+-- ==================== TELEPORT GUI ====================
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "TPGui"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+-- ลองใส่ทั้ง CoreGui และ PlayerGui
+local success = pcall(function()
+	ScreenGui.Parent = CoreGui
+end)
+
+if not success then
+	ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+end
+
+local Frame = Instance.new("Frame")
+Frame.Size = UDim2.new(0, 200, 0, 260)
+Frame.Position = UDim2.new(0, 15, 0.35, 0)
+Frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+Frame.BorderSizePixel = 0
+Frame.Active = true
+Frame.Draggable = true
+Frame.Parent = ScreenGui
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 32)
+Title.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+Title.Text = "วาร์ปผู้เล่น"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 15
+Title.Parent = Frame
+
+local ScrollingFrame = Instance.new("ScrollingFrame")
+ScrollingFrame.Size = UDim2.new(1, -10, 1, -40)
+ScrollingFrame.Position = UDim2.new(0, 5, 0, 35)
+ScrollingFrame.BackgroundTransparency = 1
+ScrollingFrame.ScrollBarThickness = 4
+ScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+ScrollingFrame.Parent = Frame
+
+local UIListLayout = Instance.new("UIListLayout")
+UIListLayout.Padding = UDim.new(0, 4)
+UIListLayout.Parent = ScrollingFrame
+
+local function refreshPlayers()
+	for _, child in pairs(ScrollingFrame:GetChildren()) do
+		if child:IsA("TextButton") then
+			child:Destroy()
+		end
+	end
+
+	local count = 0
+	for _, player in pairs(Players:GetPlayers()) do
+		if player \~= LocalPlayer then
+			local btn = Instance.new("TextButton")
+			btn.Size = UDim2.new(1, 0, 0, 30)
+			btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+			btn.Text = player.Name
+			btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+			btn.Font = Enum.Font.Gotham
+			btn.TextSize = 13
+			btn.Parent = ScrollingFrame
+
+			btn.MouseButton1Click:Connect(function()
+				local targetChar = player.Character
+				local myChar = LocalPlayer.Character
+				if targetChar and myChar then
+					local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
+					local myRoot = myChar:FindFirstChild("HumanoidRootPart")
+					if targetRoot and myRoot then
+						myRoot.CFrame = targetRoot.CFrame * CFrame.new(0, 0, 3)
+					end
+				end
+			end)
+
+			count = count + 1
+		end
+	end
+	ScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, count * 34)
+end
+
+task.spawn(function()
+	while true do
+		refreshPlayers()
+		task.wait(2)
+	end
+end)
+
+print("Script ทำงานแล้ว")
